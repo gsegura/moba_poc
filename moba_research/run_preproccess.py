@@ -10,7 +10,7 @@ CACHE_NAME = "moba_kv_cache"  # Saved as kv_cache/{CACHE_NAME}.pt
 MOBA_CHUNK_SIZE = 64
 MOBA_TOPK = 4
 moba_config = MoBAConfig(moba_chunk_size=MOBA_CHUNK_SIZE, moba_topk=MOBA_TOPK)
-kv_cache = KVCache("~/workspace/moba_poc/kv_cache")
+kv_cache = KVCache("/home/gsegura/workspace/moba_poc/kv_cache")
 processor = ContentProcessor()
 
 def load_articles():
