@@ -1,7 +1,7 @@
 import asyncio
 import re
-from typing import List, Dict, Any, Optional, Tuple
-from ollama import AsyncClient, ChatResponse
+from typing import List, Dict, Any, Optional, Tuple, Union
+from ollama import AsyncClient, ChatResponse, embed
 import time
 import logging
 from abc import ABC, abstractmethod
@@ -108,3 +108,17 @@ class OllamaProvider(ABC):
         except Exception as e:
             logging.error(f"Unexpected error during LLM request: {str(e)}")
             raise LLMProviderError(f"LLM request failed: {str(e)}")
+
+    def get_embeddings(self, model: Optional[str] = None, input_text: Union[str, List[str]] = None) -> Any:
+        """
+        Get embeddings for the given input using the specified model.
+
+        Example usage:
+          response = self.get_embeddings(model='llama3.2', input_text='Hello, world!')
+          response = self.get_embeddings(model='llama3.2', input_text=[
+              "The sky is blue because of rayleigh scattering",
+              "Grass is green because of chlorophyll"
+          ])
+        """
+        model = model or self.model
+        return embed(model=model, input=input_text)
