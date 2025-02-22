@@ -45,7 +45,6 @@ class OllamaProvider(ABC):
             response = await self._call_async(
                 messages,
                 model or self.model,
-                None,
                 **kwargs
             )
             
