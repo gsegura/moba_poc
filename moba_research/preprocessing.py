@@ -27,16 +27,16 @@ class ContentProcessor:
         """Fetch HTML content and convert to markdown."""
         return await self.markit_down_converter.convert_to_markdown(url)
     
-    def preprocess_article(self, article_text: str) -> tuple[torch.Tensor, torch.Tensor]:
+    async def preprocess_article(self, article_text: str) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Tokenize the article text and compute embeddings for each token using OllamaProvider.
         The embeddings are replicated across multiple heads to form K and V tensors.
         """
         tokens = article_text.split()
         # Get token-level embeddings (assume list input returns one embedding per token)
-        embeddings = self.llm_provider.get_embeddings(input_text=tokens)
+        embeddings = await self.llm_provider.get_embeddings(input_text=tokens)
         # Convert to tensor; assume each embedding is of dimension D (e.g., 64)
-        embedding_tensor = torch.tensor(embeddings)  # shape: [seq_len, D]
+        embedding_tensor = torch.tensor(embeddings.embeddings)  # shape: [seq_len, D]
         seq_len, head_dim = embedding_tensor.shape
         num_heads = 8  # fixed value for demonstration
         # Replicate embeddings across heads: reshape to [seq_len, 1, head_dim] then repeat
@@ -44,14 +44,14 @@ class ContentProcessor:
         v = embedding_tensor.unsqueeze(1).repeat(1, num_heads, 1)
         return k, v
     
-    def encode_question(self, question_text: str) -> torch.Tensor:
+    async def encode_question(self, question_text: str) -> torch.Tensor:
         """
         Tokenize the question text and compute embeddings using OllamaProvider.
         The resulting embedding tensor is replicated across multiple heads to form Q.
         """
         tokens = question_text.split()
-        embeddings = self.llm_provider.get_embeddings(input_text=tokens)
-        embedding_tensor = torch.tensor(embeddings)  # shape: [seq_len, D]
+        embeddings = await self.llm_provider.get_embeddings(input_text=tokens)
+        embedding_tensor = torch.tensor(embeddings.embeddings)  # shape: [seq_len, D]
         seq_len, head_dim = embedding_tensor.shape
         num_heads = 8  # fixed value for demonstration
         q = embedding_tensor.unsqueeze(1).repeat(1, num_heads, 1)

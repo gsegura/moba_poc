@@ -43,13 +43,13 @@ async def create_and_save_kv_cache():
 	cache_data = {'k': combined_k, 'v': combined_v}
 	kv_cache.save_kv_cache_to_ssd(cache_data, CACHE_NAME)
 
-def answer_question_with_cache(question_text, moba_config):
+async def answer_question_with_cache(question_text, moba_config):
 	# Load KV Cache from SSD
 	cache_data = kv_cache.load_kv_cache_from_ssd(CACHE_NAME)
 	if cache_data is None:
 		return "KV Cache not loaded. Cannot answer question."
 	# Encode question to get Q tensor and ensure tensor is on GPU with fp16 precision
-	question_tensor = processor.encode_question(question_text).cuda().half()
+	question_tensor = (await processor.encode_question(question_text)).cuda().half()
 	device = question_tensor.device
 	# Retrieve cached K,V, move to device and convert to fp16
 	cached_k = cache_data['k'].to(device).half()
@@ -68,12 +68,15 @@ def answer_question_with_cache(question_text, moba_config):
 	return "Answer generated based on MoBA attention and KV Cache. (Placeholder Answer)"
 
 if __name__ == "__main__":
-	# 1. Create and save the KV Cache.
-	asyncio.run(create_and_save_kv_cache())
-	# 2. Load the cache and answer questions.
-	question1 = "What is MoBA and how does it improve LLMs?"
-	answer1 = answer_question_with_cache(question1, moba_config)
-	print(f"Question: {question1}\nAnswer: {answer1}\n")
-	question2 = "What are some applications of MoBA?"
-	answer2 = answer_question_with_cache(question2, moba_config)
-	print(f"Question: {question2}\nAnswer: {answer2}\n")
+	async def main():
+		# 1. Create and save the KV Cache.
+		await create_and_save_kv_cache()
+		# 2. Load the cache and answer questions.
+		question1 = "What is MoBA and how does it improve LLMs?"
+		answer1 = await answer_question_with_cache(question1, moba_config)
+		print(f"Question: {question1}\nAnswer: {answer1}\n")
+		question2 = "What are some applications of MoBA?"
+		answer2 = await answer_question_with_cache(question2, moba_config)
+		print(f"Question: {question2}\nAnswer: {answer2}\n")
+
+	asyncio.run(main())

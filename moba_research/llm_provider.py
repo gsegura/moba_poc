@@ -26,7 +26,7 @@ class OllamaProvider(ABC):
     def __init__(
         self, 
         host: str = 'http://localhost:11434',
-        model: str = 'deepseek-r1:32b',
+        model: str = 'deepseek-r1:14b',
         max_retries: int = 3,
         timeout: float = 600.0
     ):
@@ -108,16 +108,26 @@ class OllamaProvider(ABC):
             logging.error(f"Unexpected error during LLM request: {str(e)}")
             raise LLMProviderError(f"LLM request failed: {str(e)}")
 
-    def get_embeddings(self, model: Optional[str] = None, input_text: Union[str, List[str]] = None) -> Any:
+    async def get_embeddings(self, model: Optional[str] = None, input_text: Union[str, List[str]] = None) -> Any:
         """
-        Get embeddings for the given input using the specified model.
+        Get embeddings for the given input using the specified model asynchronously.
+        Calls the embed method on the instance's async client.
 
         Example usage:
-          response = self.get_embeddings(model='llama3.2', input_text='Hello, world!')
-          response = self.get_embeddings(model='llama3.2', input_text=[
+          response = await self.get_embeddings(model='llama3.2', input_text='Hello, world!')
+          response = await self.get_embeddings(model='llama3.2', input_text=[
               "The sky is blue because of rayleigh scattering",
               "Grass is green because of chlorophyll"
           ])
         """
         model = model or self.model
-        return embed(model=model, input=input_text)
+        return await self.client.embed(model=model, input=input_text)
+
+
+if __name__ == "__main__":
+    async def main():
+        provider = OllamaProvider(host="http://ai-server:11434")
+        out = await provider.get_embeddings(input_text="Hello, world!", model="bge-m3:latest")
+        print(out)
+    
+    asyncio.run(main())
