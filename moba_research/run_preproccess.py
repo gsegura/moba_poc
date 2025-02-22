@@ -40,10 +40,11 @@ def answer_question_with_cache(question_text, moba_config):
 	cache_data = kv_cache.load_kv_cache_from_ssd(CACHE_NAME)
 	if cache_data is None:
 		return "KV Cache not loaded. Cannot answer question."
-	question_tensor = processor.encode_question(question_text).cuda()
+	# Ensure question tensor and cached KV are in fp16
+	question_tensor = processor.encode_question(question_text).cuda().half()
 	device = question_tensor.device
-	cached_k = cache_data['k'].to(device).cuda()
-	cached_v = cache_data['v'].to(device).cuda()
+	cached_k = cache_data['k'].to(device).cuda().half()
+	cached_v = cache_data['v'].to(device).cuda().half()
 	# Prepare cumulative sequence lengths.
 	seqlen_q = question_tensor.shape[0]
 	seqlen_kv = cached_k.shape[0]

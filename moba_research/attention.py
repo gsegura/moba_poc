@@ -80,10 +80,10 @@ class MixedAttention(torch.autograd.Function):
     def forward(ctx, q, k, v, self_attn_cu_seqlen, moba_q, moba_kv, 
                 moba_cu_seqlen_q, moba_cu_seqlen_kv, max_seqlen, 
                 moba_chunk_size, moba_q_sh_indices):
-        # Ensure tensors are on the CUDA device
-        q, k, v = q.cuda(), k.cuda(), v.cuda()
-        self_attn_cu_seqlen = self_attn_cu_seqlen.cuda()
-        moba_q, moba_kv = moba_q.cuda(), moba_kv.cuda()
+        # Ensure tensors are on the CUDA device and in fp16
+        q, k, v = q.cuda().half(), k.cuda().half(), v.cuda().half()
+        self_attn_cu_seqlen = self_attn_cu_seqlen.cuda()  # int tensor remains as-is
+        moba_q, moba_kv = moba_q.cuda().half(), moba_kv.cuda().half()
         moba_cu_seqlen_q, moba_cu_seqlen_kv = moba_cu_seqlen_q.cuda(), moba_cu_seqlen_kv.cuda()
         moba_q_sh_indices = moba_q_sh_indices.cuda()
 
@@ -284,8 +284,8 @@ def moba_attn_varlen(
     moba_chunk_size: int,
     moba_topk: int,
 ) -> torch.Tensor:
-    # Ensure tensors are on the CUDA device
-    q, k, v = q.cuda(), k.cuda(), v.cuda()
+    # Ensure tensors are on CUDA and in fp16 for FlashAttention ops
+    q, k, v = q.cuda().half(), k.cuda().half(), v.cuda().half()
     cu_seqlens = cu_seqlens.cuda()
 
     """Mixture of Block Attention with variable sequence lengths.
