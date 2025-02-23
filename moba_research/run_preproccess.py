@@ -34,7 +34,7 @@ async def create_and_save_kv_cache():
 		else:
 			article_content = article
 		# Preprocess the article content to get K and V tensors.
-		k, v = processor.preprocess_article(article_content)
+		k, v = await processor.preprocess_article(article_content)
 		combined_k_list.append(k)
 		combined_v_list.append(v)
 	# Combine KV data from all articles.
