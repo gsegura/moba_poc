@@ -1,9 +1,12 @@
 import asyncio
 import torch
 import os
+
+from moba_research.llm_provider import OllamaProvider
 from moba_research.preprocessing import ContentProcessor
 from moba_research.cache import KVCache
 from moba_research.attention import moba_attn_varlen, MoBAConfig  # Assumed available from MoBA module
+from moba_research.preprocessing.ollama_embedding_preprocessor import OllamaEmbeddingPreprocessor
 
 # --- Configuration ---
 CACHE_NAME = "moba_kv_cache"  # Saved as kv_cache/{CACHE_NAME}.pt
@@ -11,7 +14,8 @@ MOBA_CHUNK_SIZE = 64
 MOBA_TOPK = 4
 moba_config = MoBAConfig(moba_chunk_size=MOBA_CHUNK_SIZE, moba_topk=MOBA_TOPK)
 kv_cache = KVCache("/home/gsegura/workspace/moba_poc/kv_cache")
-processor = ContentProcessor()
+llm_provider = OllamaProvider(host="http://ai-server:11434") # Example provider for Ollama embeddings
+processor = OllamaEmbeddingPreprocessor(llm_provider)
 
 def load_articles():
 	# In reality, load from files/database; here we use dummy articles.
@@ -43,7 +47,7 @@ async def create_and_save_kv_cache():
 	cache_data = {'k': combined_k, 'v': combined_v}
 	kv_cache.save_kv_cache_to_ssd(cache_data, CACHE_NAME)
 
-async def answer_question_with_cache(question_text, moba_config):
+async def answer_question_with_cache_old(question_text, moba_config):
 	# Load KV Cache from SSD
 	cache_data = kv_cache.load_kv_cache_from_ssd(CACHE_NAME)
 	if cache_data is None:
@@ -66,6 +70,31 @@ async def answer_question_with_cache(question_text, moba_config):
 	)
 	# For now, return a placeholder answer. In a full model, attn_output would be further decoded.
 	return "Answer generated based on MoBA attention and KV Cache. (Placeholder Answer)"
+
+async def answer_question_with_cache(question_text, moba_config, ollama_preprocessor): # Pass preprocessor instance
+	cached_kv_data = kv_cache.load_kv_cache_from_ssd(CACHE_NAME)
+	if cached_kv_data is None:
+		return "KV Cache not loaded. Cannot answer question."
+
+	question_tensor_q = await ollama_preprocessor.encode_question(question_text) # Use async encode_question
+	cached_k = cached_kv_data['k'].to(question_tensor_q.device).half()
+	cached_v = cached_kv_data['v'].to(question_tensor_q.device).half()
+
+	# --- Prepare cu_seqlens and max_seqlen --- (No change needed here)
+	seqlen_q = question_tensor_q.shape[0]
+	seqlen_kv = cached_k.shape[0]
+	cu_seqlens_q = torch.tensor([0, seqlen_q], dtype=torch.int32, device=question_tensor_q.device)
+	cu_seqlens_kv = torch.tensor([0, seqlen_kv], dtype=torch.int32, device=question_tensor_q.device)
+	max_seqlen_q = seqlen_q
+	max_seqlen_kv = seqlen_kv
+
+	# --- Call MoBA Attention --- (No change needed here)
+	attn_output = moba_attn_varlen(
+		question_tensor_q, cached_k, cached_v, cu_seqlens_kv, max_seqlen_kv,
+		moba_config.moba_chunk_size, moba_config.moba_topk
+	)
+
+	return "Answer generated based on MoBA attention and KV Cache. (Placeholder Answer with Ollama Embeddings)" # Updated message
 
 if __name__ == "__main__":
 	async def main():
