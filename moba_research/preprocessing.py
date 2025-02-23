@@ -14,7 +14,7 @@ class ContentProcessor:
         self.html_converter.ignore_links = True
         self.llm_provider = OllamaProvider (
             host = 'http://localhost:11434',
-            model = 'deepseek-r1:32b'
+            model = 'deepseek-r1:14b'
         )
         self.markit_down_converter = MarkitdownTextReasonerConverter(
             llm_provider = self.llm_provider,
@@ -34,7 +34,7 @@ class ContentProcessor:
         """
         tokens = article_text.split()
         # Get token-level embeddings (assume list input returns one embedding per token)
-        embeddings = await self.llm_provider.get_embeddings(input_text=tokens)
+        embeddings = await self.llm_provider.get_embeddings(input_text=tokens, model="bge-m3:latest")
         # Convert to tensor; assume each embedding is of dimension D (e.g., 64)
         embedding_tensor = torch.tensor(embeddings.embeddings)  # shape: [seq_len, D]
         seq_len, head_dim = embedding_tensor.shape
@@ -50,7 +50,7 @@ class ContentProcessor:
         The resulting embedding tensor is replicated across multiple heads to form Q.
         """
         tokens = question_text.split()
-        embeddings = await self.llm_provider.get_embeddings(input_text=tokens)
+        embeddings = await self.llm_provider.get_embeddings(input_text=tokens, model="bge-m3:latest")
         embedding_tensor = torch.tensor(embeddings.embeddings)  # shape: [seq_len, D]
         seq_len, head_dim = embedding_tensor.shape
         num_heads = 8  # fixed value for demonstration
