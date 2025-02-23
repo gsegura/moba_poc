@@ -1,6 +1,8 @@
 import asyncio
 import re
 from typing import List, Dict, Any, Optional, Tuple, Union
+
+import torch
 from ollama import AsyncClient, ChatResponse, embed
 import time
 import logging
@@ -129,5 +131,7 @@ if __name__ == "__main__":
         provider = OllamaProvider(host="http://ai-server:11434")
         out = await provider.get_embeddings(input_text="Hello, world!", model="bge-m3:latest")
         print(out)
-    
+        embeddings = torch.tensor(out.embeddings)
+        print(embeddings.shape)
+
     asyncio.run(main())

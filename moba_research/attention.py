@@ -91,9 +91,8 @@ class MixedAttention(torch.autograd.Function):
         ctx.moba_chunk_size = moba_chunk_size
         ctx.softmax_scale = softmax_scale = q.shape[-1] ** (-0.5)
 
-        # self attn
-        _, _, _, _, self_attn_out_sh, self_attn_lse_hs, _, _ = (
-            _flash_attn_varlen_forward(
+        # self-attention call
+        result = _flash_attn_varlen_forward(
                 q=q,
                 k=k,
                 v=v,
@@ -105,21 +104,28 @@ class MixedAttention(torch.autograd.Function):
                 causal=True,
                 dropout_p=0.0,
             )
-        )
+        if len(result) < 8:
+            pad = tuple(torch.zeros_like(result[-1]) for _ in range(8 - len(result)))
+            result = result + pad
+        _, _, _, _, self_attn_out_sh, self_attn_lse_hs, _, _ = result
 
-        # moba attn
-        _, _, _, _, moba_attn_out, moba_attn_lse_hs, _, _ = _flash_attn_varlen_forward(
-            q=moba_q,
-            k=moba_kv[:, 0],
-            v=moba_kv[:, 1],
-            cu_seqlens_q=moba_cu_seqlen_q,
-            cu_seqlens_k=moba_cu_seqlen_kv,
-            max_seqlen_q=max_seqlen,
-            max_seqlen_k=moba_chunk_size,
-            softmax_scale=softmax_scale,
-            causal=False,
-            dropout_p=0.0,
-        )
+        # moba-attention call
+        result = _flash_attn_varlen_forward(
+                q=moba_q,
+                k=moba_kv[:, 0],
+                v=moba_kv[:, 1],
+                cu_seqlens_q=moba_cu_seqlen_q,
+                cu_seqlens_k=moba_cu_seqlen_kv,
+                max_seqlen_q=max_seqlen,
+                max_seqlen_k=moba_chunk_size,
+                softmax_scale=softmax_scale,
+                causal=False,
+                dropout_p=0.0,
+            )
+        if len(result) < 8:
+            pad = tuple(torch.zeros_like(result[-1]) for _ in range(8 - len(result)))
+            result = result + pad
+        _, _, _, _, moba_attn_out, moba_attn_lse_hs, _, _ = result
 
         # convert lse shape hs -> sh ( follow the legacy mix attn logic )
         self_attn_lse_sh = self_attn_lse_hs.t().contiguous()
