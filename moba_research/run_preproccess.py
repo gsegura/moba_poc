@@ -25,7 +25,7 @@ def load_articles():
 		"Another article on efficient attention mechanisms."
 	]
 
-async def create_and_save_kv_cache():
+async def create_and_save_kv_cache(processor):
 	articles = load_articles()
 	combined_k_list = []
 	combined_v_list = []
@@ -46,7 +46,7 @@ async def create_and_save_kv_cache():
 	cache_data = {'k': combined_k, 'v': combined_v}
 	kv_cache.save_kv_cache_to_ssd(cache_data, CACHE_NAME)
 
-async def answer_question_with_cache_old(question_text, moba_config):
+async def answer_question_with_cache_old(question_text, moba_config, processor):
 	# Load KV Cache from SSD
 	cache_data = kv_cache.load_kv_cache_from_ssd(CACHE_NAME)
 	if cache_data is None:
@@ -98,13 +98,13 @@ async def answer_question_with_cache(question_text, moba_config, ollama_preproce
 if __name__ == "__main__":
 	async def main():
 		# 1. Create and save the KV Cache.
-		await create_and_save_kv_cache()
+		await create_and_save_kv_cache(processor)
 		# 2. Load the cache and answer questions.
 		question1 = "What is MoBA and how does it improve LLMs?"
-		answer1 = await answer_question_with_cache(question1, moba_config)
+		answer1 = await answer_question_with_cache(question1, moba_config, processor)
 		print(f"Question: {question1}\nAnswer: {answer1}\n")
 		question2 = "What are some applications of MoBA?"
-		answer2 = await answer_question_with_cache(question2, moba_config)
+		answer2 = await answer_question_with_cache(question2, moba_config, processor)
 		print(f"Question: {question2}\nAnswer: {answer2}\n")
 
 	asyncio.run(main())
