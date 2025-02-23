@@ -33,15 +33,22 @@ class ContentProcessor:
         The embeddings are replicated across multiple heads to form K and V tensors.
         """
         tokens = article_text.split()
-        # Get token-level embeddings (assume list input returns one embedding per token)
-        embeddings = await self.llm_provider.get_embeddings(input_text=tokens, model="bge-m3:latest")
-        # Convert to tensor; assume each embedding is of dimension D (e.g., 64)
-        embedding_tensor = torch.tensor(embeddings.embeddings)  # shape: [seq_len, D]
-        seq_len, head_dim = embedding_tensor.shape
+        # Get token-level embeddings - returns list of 1024-dim vectors
+        embed_response = await self.llm_provider.get_embeddings(input_text=tokens, model="bge-m3:latest")
+        # Convert embedding list to tensor and reshape for MoBA
+        embedding_tensor = torch.tensor(embed_response.embeddings)  # shape: [seq_len, 1024]
+        seq_len = len(tokens)
         num_heads = 8  # fixed value for demonstration
-        # Replicate embeddings across heads: reshape to [seq_len, 1, head_dim] then repeat
-        k = embedding_tensor.unsqueeze(1).repeat(1, num_heads, 1)
-        v = embedding_tensor.unsqueeze(1).repeat(1, num_heads, 1)
+        head_dim = 64  # Need to project 1024 -> 64 for each head
+        
+        # Project embeddings to lower dimension using average pooling
+        embedding_tensor = embedding_tensor.view(seq_len, num_heads, -1)  # [seq_len, 8, 128]
+        embedding_tensor = embedding_tensor.mean(dim=-1, keepdim=True)  # [seq_len, 8, 1]
+        embedding_tensor = embedding_tensor.repeat(1, 1, head_dim)  # [seq_len, 8, 64]
+        
+        # Create K and V tensors from the projected embeddings
+        k = embedding_tensor  # Already in shape [seq_len, num_heads, head_dim]
+        v = embedding_tensor  # Same shape as k
         return k, v
     
     async def encode_question(self, question_text: str) -> torch.Tensor:
@@ -50,9 +57,14 @@ class ContentProcessor:
         The resulting embedding tensor is replicated across multiple heads to form Q.
         """
         tokens = question_text.split()
-        embeddings = await self.llm_provider.get_embeddings(input_text=tokens, model="bge-m3:latest")
-        embedding_tensor = torch.tensor(embeddings.embeddings)  # shape: [seq_len, D]
-        seq_len, head_dim = embedding_tensor.shape
-        num_heads = 8  # fixed value for demonstration
-        q = embedding_tensor.unsqueeze(1).repeat(1, num_heads, 1)
+        embed_response = await self.llm_provider.get_embeddings(input_text=tokens, model="bge-m3:latest")
+        embedding_tensor = torch.tensor(embed_response.embeddings)  # shape: [seq_len, 1024]
+        seq_len = len(tokens)
+        num_heads = 8
+        head_dim = 64
+        
+        # Project embeddings to lower dimension using average pooling
+        embedding_tensor = embedding_tensor.view(seq_len, num_heads, -1)  # [seq_len, 8, 128]
+        embedding_tensor = embedding_tensor.mean(dim=-1, keepdim=True)  # [seq_len, 8, 1]
+        q = embedding_tensor.repeat(1, 1, head_dim)  # [seq_len, 8, 64]
         return q
